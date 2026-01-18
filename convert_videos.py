@@ -8,6 +8,11 @@ from concurrent.futures import ThreadPoolExecutor
 # Start with 4. If CPU is still low, try 8. If NAS slows down, go back to 2.
 MAX_PARALLEL_TASKS = 4
 
+# --- COPYRIGHT INFO ---
+COPYRIGHT_HOLDER = "Copyright © Shechen Archives. All Rights Reserved."
+PROJECT_NAME = "Khyentse Önang"
+DESCRIPTION = "Preserved by the Khyentse Önang Project. Original media from Shechen Archives."
+
 
 def process_single_file(row):
     """
@@ -33,6 +38,16 @@ def process_single_file(row):
     codec = str(row['Video Codec']).lower()
     field_order = str(row['Field Order']).lower()
 
+    # --- METADATA FLAGS ---
+    # We add these to every single command
+    metadata_flags = [
+        "-metadata", f"copyright={COPYRIGHT_HOLDER}",
+        "-metadata", f"artist={PROJECT_NAME}",
+        "-metadata", f"comment={DESCRIPTION}",
+        # Also map original metadata (like dates) from source
+        "-map_metadata", "0"
+    ]
+
     # 1. MASTER ARCHIVE
     archive_out = os.path.join(masters_dir, f"{base_name}_Master.mov")
 
@@ -41,20 +56,19 @@ def process_single_file(row):
         if 'prores' in codec:
             # Copy Mode
             cmd_archive = [
-                "ffmpeg", "-n", "-i", input_path,
-                "-c", "copy", "-map", "0", "-map_metadata", "0",
-                archive_out
-            ]
+                              "ffmpeg", "-n", "-i", input_path,
+                              "-c", "copy",
+                              "-map", "0"
+                          ] + metadata_flags + [archive_out]  # Add metadata flags here
         else:
             # Transcode Mode
             cmd_archive = [
-                "ffmpeg", "-n", "-i", input_path,
-                "-c:v", "prores_ks", "-profile:v", "2", "-vendor", "apl0",
-                "-bits_per_mb", "8000", "-pix_fmt", "yuv422p10le",
-                "-c:a", "pcm_s16le", "-ar", "48000",
-                "-map", "0", "-map_metadata", "0",
-                archive_out
-            ]
+                              "ffmpeg", "-n", "-i", input_path,
+                              "-c:v", "prores_ks", "-profile:v", "2", "-vendor", "apl0",
+                              "-bits_per_mb", "8000", "-pix_fmt", "yuv422p10le",
+                              "-c:a", "pcm_s16le", "-ar", "48000",
+                              "-map", "0"
+                          ] + metadata_flags + [archive_out]  # Add metadata flags here
 
         # Run Archive
         # stdout/stderr to DEVNULL prevents the console from becoming a mess of 4 overlapping text streams
@@ -80,18 +94,17 @@ def process_single_file(row):
             vf_filters.insert(0, "yadif")
 
         cmd_sharing = [
-            "ffmpeg", "-n", "-i", input_path,
-            "-c:v", "libx264", "-crf", "23", "-preset", "slow",
-            "-vf", ",".join(vf_filters),
-            "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
-            "-map", "0", "-map_metadata", "0",
-            "-movflags", "+faststart",
-            sharing_out
-        ]
+                          "ffmpeg", "-n", "-i", input_path,
+                          "-c:v", "libx264", "-crf", "23", "-preset", "slow",
+                          "-vf", ",".join(vf_filters),
+                          "-c:a", "aac", "-b:a", "192k", "-ar", "48000",
+                          "-movflags", "+faststart",
+                          "-map", "0"
+                      ] + metadata_flags + [sharing_out]  # Add metadata flags here
 
         # Run Proxy
         subprocess.run(cmd_sharing, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        print(f"  [DONE] Proxy:  {filename}")
+        print(f"  [DONE] Proxy (Copyrighted):  {filename}")
     else:
         print(f"  [SKIP] Proxy exists:  {filename}")
 
